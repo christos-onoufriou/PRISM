@@ -1,0 +1,709 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Camera App</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            background: #000;
+            color: #fff;
+            overflow: hidden;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+        
+        #viewfinder {
+            flex: 1;
+            position: relative;
+            overflow: hidden;
+            background: #000;
+        }
+        
+        #video {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            transform: scaleX(-1);
+        }
+        
+        #video.rear {
+            transform: scaleX(1);
+        }
+        
+        .hidden {
+            display: none !important;
+        }
+        
+        .overlay {
+            position: absolute;
+            inset: 0;
+            background: rgba(0, 0, 0, 0.95);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 2rem;
+            overflow-y: auto;
+            z-index: 10;
+        }
+        
+        .content {
+            max-width: 600px;
+            width: 100%;
+        }
+        
+        .icon {
+            width: 64px;
+            height: 64px;
+            margin: 0 auto 1.5rem;
+            opacity: 0.7;
+        }
+        
+        h2 {
+            font-size: 1.5rem;
+            margin-bottom: 1rem;
+            text-align: center;
+        }
+        
+        p {
+            margin-bottom: 1rem;
+            color: #ccc;
+        }
+        
+        button {
+            width: 100%;
+            background: #3b82f6;
+            color: #fff;
+            border: none;
+            padding: 1rem 1.5rem;
+            border-radius: 0.5rem;
+            font-size: 1.125rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background 0.2s;
+            margin-bottom: 0.5rem;
+        }
+        
+        button:hover {
+            background: #2563eb;
+        }
+        
+        button:disabled {
+            background: #4b5563;
+            cursor: not-allowed;
+        }
+        
+        button.secondary {
+            background: #374151;
+        }
+        
+        button.secondary:hover {
+            background: #4b5563;
+        }
+        
+        .loading {
+            text-align: center;
+            padding: 2rem;
+        }
+        
+        .spinner {
+            border: 3px solid #333;
+            border-top: 3px solid #3b82f6;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 1rem;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
+        #controls {
+            background: #000;
+            padding: 1rem 1.5rem 2rem;
+        }
+        
+        .controls-grid {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            max-width: 400px;
+            margin: 0 auto;
+        }
+        
+        .btn-capture {
+            width: 70px;
+            height: 70px;
+            border: 3px solid #fff;
+            border-radius: 50%;
+            background: transparent;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            padding: 0;
+        }
+        
+        .btn-capture:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+        
+        .btn-capture-inner {
+            width: 58px;
+            height: 58px;
+            background: #fff;
+            border-radius: 50%;
+            transition: transform 0.1s;
+        }
+        
+        .btn-capture:not(:disabled):active .btn-capture-inner {
+            transform: scale(0.9);
+        }
+        
+        .btn-switch {
+            width: 40px;
+            height: 40px;
+            min-width: 40px;
+            border-radius: 50%;
+            background: rgba(118, 118, 128, 0.24);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border: none;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            color: #fff;
+            transition: background 0.2s;
+            padding: 0;
+        }
+        
+        .btn-switch svg {
+            width: 22px;
+            height: 22px;
+        }
+        
+        .btn-switch:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+        
+        .btn-switch:not(:disabled):active {
+            background: rgba(118, 118, 128, 0.4);
+        }
+        
+        .btn-action {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 0.5rem;
+            background: none;
+            border: none;
+            color: #fff;
+            cursor: pointer;
+            padding: 0;
+            width: auto;
+        }
+        
+        .btn-action-icon {
+            width: 48px;
+            height: 48px;
+            border-radius: 50%;
+            background: rgba(118, 118, 128, 0.24);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: background 0.2s;
+        }
+        
+        .btn-action-icon.primary {
+            background: #3b82f6;
+        }
+        
+        .btn-action:active .btn-action-icon {
+            background: rgba(118, 118, 128, 0.4);
+        }
+        
+        .btn-action-icon.primary:active {
+            background: #2563eb;
+        }
+        
+        .spacer {
+            width: 40px;
+            min-width: 40px;
+        }
+        
+        svg {
+            width: 24px;
+            height: 24px;
+        }
+        
+        .small-text {
+            font-size: 0.875rem;
+        }
+        
+        .comparison-container {
+            position: relative;
+            width: 100%;
+            max-height: 500px;
+            overflow: hidden;
+            border-radius: 0.5rem;
+            margin-bottom: 1.5rem;
+            user-select: none;
+            -webkit-user-select: none;
+        }
+        
+        .comparison-container img {
+            width: 100%;
+            height: auto;
+            display: block;
+        }
+        
+        .comparison-original {
+            position: relative;
+            width: 100%;
+        }
+        
+        .comparison-edited {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+        }
+        
+        .comparison-edited img {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+        
+        .comparison-slider {
+            position: absolute;
+            top: 0;
+            bottom: 0;
+            width: 3px;
+            background: #fff;
+            cursor: ew-resize;
+            z-index: 5;
+            left: 50%;
+            transform: translateX(-50%);
+        }
+        
+        .comparison-handle {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 40px;
+            height: 40px;
+            background: #fff;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.3);
+        }
+        
+        .comparison-handle svg {
+            width: 20px;
+            height: 20px;
+            color: #000;
+        }
+        
+        .comparison-labels {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 0.5rem;
+            font-size: 0.875rem;
+            color: #9ca3af;
+        }
+        
+        .prompt-info {
+            background: #1a1a1a;
+            border: 1px solid #374151;
+            padding: 1rem;
+            border-radius: 0.5rem;
+            margin-bottom: 1rem;
+            font-size: 0.875rem;
+        }
+        
+        .prompt-info strong {
+            color: #3b82f6;
+        }
+    </style>
+</head>
+<body>
+    <div id="viewfinder">
+        <video id="video" autoplay playsinline muted></video>
+        
+        <div id="welcomeScreen" class="overlay">
+            <div class="content">
+                <svg class="icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z"/>
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z"/>
+                </svg>
+                <h2>AI Camera App</h2>
+                <p style="text-align: center;">Capture photos that are automatically enhanced by Gemini AI</p>
+                <button onclick="requestCamera()">Start Camera</button>
+            </div>
+        </div>
+        
+        <div id="processingScreen" class="overlay hidden">
+            <div class="content">
+                <div class="loading">
+                    <div class="spinner"></div>
+                    <h2>✨ AI Magic in Progress</h2>
+                    <p id="processingMessage">Gemini is enhancing your photo...</p>
+                </div>
+            </div>
+        </div>
+        
+        <div id="resultScreen" class="overlay hidden">
+            <div class="content">
+                <h2>📸 Your AI-Enhanced Photo</h2>
+                
+                <div class="prompt-info">
+                    <strong>AI Prompt Used:</strong>
+                    <p id="usedPrompt" style="margin-top: 0.5rem; margin-bottom: 0; color: #ccc;"></p>
+                </div>
+                
+                <div class="comparison-labels">
+                    <span>Original</span>
+                    <span>AI Enhanced</span>
+                </div>
+                <div class="comparison-container" id="comparisonContainer">
+                    <div class="comparison-original">
+                        <img id="originalImg" src="" alt="Original">
+                    </div>
+                    <div class="comparison-edited" id="comparisonEdited">
+                        <img id="editedImg" src="" alt="Edited">
+                    </div>
+                    <div class="comparison-slider" id="comparisonSlider">
+                        <div class="comparison-handle">
+                            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="3">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M8 9l4-4 4 4m0 6l-4 4-4-4"/>
+                            </svg>
+                        </div>
+                    </div>
+                </div>
+                
+                <button onclick="downloadPhoto()">💾 Save AI Photo</button>
+                <button class="secondary" onclick="takeAnother()">📷 Take Another Photo</button>
+            </div>
+        </div>
+        
+        <div id="errorScreen" class="overlay hidden">
+            <div class="content">
+                <svg class="icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/>
+                </svg>
+                <h2 id="errorTitle">Error</h2>
+                <p id="errorMessage" style="text-align: center;"></p>
+                <button onclick="takeAnother()">Try Again</button>
+            </div>
+        </div>
+    </div>
+    
+    <div id="controls">
+        <div id="photoControls" class="controls-grid">
+            <div class="spacer"></div>
+            <button class="btn-capture" id="captureBtn" onclick="capturePhoto()" disabled>
+                <div class="btn-capture-inner"></div>
+            </button>
+            <button class="btn-switch" id="switchBtn" onclick="switchCamera()" disabled>
+                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2.5">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
+                </svg>
+            </button>
+        </div>
+    </div>
+    
+    <script>
+        // ADD YOUR GEMINI API KEY HERE
+        const GEMINI_API_KEY = 'AIzaSyBvl3QzIPWOjq4H4z1F1GjQIGshvkVC3T4';
+        
+        // AI PROMPTS FOR EACH CAMERA
+        const FRONT_CAMERA_PROMPT = 'Turn this person into a war correspondent wearing a blue helmet and a blue vest wth the word PRESS. The background is a worn torn city.';
+        const REAR_CAMERA_PROMPT = 'Turn this scene a bombed area. The buildings are bombed, there is smoke and fire and debris on the ground. The people are running away scared.';
+        
+        var stream = null;
+        var facingMode = 'user';
+        var originalImageData = null;
+        var editedImageData = null;
+        var isDragging = false;
+        
+        var video = document.getElementById('video');
+        var welcomeScreen = document.getElementById('welcomeScreen');
+        var processingScreen = document.getElementById('processingScreen');
+        var resultScreen = document.getElementById('resultScreen');
+        var errorScreen = document.getElementById('errorScreen');
+        var captureBtn = document.getElementById('captureBtn');
+        var switchBtn = document.getElementById('switchBtn');
+        var photoControls = document.getElementById('photoControls');
+        
+        function requestCamera() {
+            welcomeScreen.classList.add('hidden');
+            errorScreen.classList.add('hidden');
+            
+            if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+                showError('Camera Not Supported', 'Camera API not supported in this browser');
+                return;
+            }
+            
+            if (stream) {
+                var tracks = stream.getTracks();
+                for (var i = 0; i < tracks.length; i++) {
+                    tracks[i].stop();
+                }
+            }
+            
+            navigator.mediaDevices.getUserMedia({
+                video: { facingMode: facingMode },
+                audio: false
+            })
+            .then(function(mediaStream) {
+                stream = mediaStream;
+                video.srcObject = stream;
+                
+                if (facingMode === 'environment') {
+                    video.classList.add('rear');
+                } else {
+                    video.classList.remove('rear');
+                }
+                
+                captureBtn.disabled = false;
+                switchBtn.disabled = false;
+            })
+            .catch(function(err) {
+                showError('Camera Access Denied', err.name + ': Please allow camera access');
+            });
+        }
+        
+        function showError(title, msg) {
+            document.getElementById('errorTitle').textContent = title;
+            document.getElementById('errorMessage').textContent = msg;
+            errorScreen.classList.remove('hidden');
+            processingScreen.classList.add('hidden');
+            resultScreen.classList.add('hidden');
+        }
+        
+        function capturePhoto() {
+            var canvas = document.createElement('canvas');
+            canvas.width = video.videoWidth;
+            canvas.height = video.videoHeight;
+            
+            var ctx = canvas.getContext('2d');
+            
+            if (facingMode === 'user') {
+                ctx.scale(-1, 1);
+                ctx.drawImage(video, -canvas.width, 0);
+            } else {
+                ctx.drawImage(video, 0, 0);
+            }
+            
+            originalImageData = canvas.toDataURL('image/jpeg', 0.9);
+            
+            photoControls.classList.add('hidden');
+            processWithAI();
+        }
+        
+        function processWithAI() {
+            if (!GEMINI_API_KEY) {
+                showError('API Key Missing', 'Please add your Gemini API key in the code (line 360)');
+                photoControls.classList.remove('hidden');
+                return;
+            }
+            
+            var prompt = facingMode === 'user' ? FRONT_CAMERA_PROMPT : REAR_CAMERA_PROMPT;
+            var cameraType = facingMode === 'user' ? 'Selfie' : 'Photo';
+            
+            document.getElementById('processingMessage').textContent = 'Enhancing your ' + cameraType.toLowerCase() + '...';
+            processingScreen.classList.remove('hidden');
+            
+            var base64Image = originalImageData.split(',')[1];
+            
+            var requestBody = {
+                contents: [{
+                    parts: [
+                        { text: prompt },
+                        {
+                            inline_data: {
+                                mime_type: 'image/jpeg',
+                                data: base64Image
+                            }
+                        }
+                    ]
+                }],
+                generationConfig: {
+                    responseModalities: ['IMAGE', 'TEXT']
+                }
+            };
+            
+            fetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-image:generateContent?key=' + GEMINI_API_KEY, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(requestBody)
+            })
+            .then(function(response) {
+                return response.json();
+            })
+            .then(function(data) {
+                console.log('Gemini response:', data);
+                
+                if (data.error) {
+                    showError('AI Error', data.error.message);
+                    photoControls.classList.remove('hidden');
+                    return;
+                }
+                
+                if (!data.candidates || data.candidates.length === 0) {
+                    showError('AI Error', 'No response from Gemini. Please try again.');
+                    photoControls.classList.remove('hidden');
+                    return;
+                }
+                
+                var candidate = data.candidates[0];
+                
+                if (!candidate.content || !candidate.content.parts || candidate.content.parts.length === 0) {
+                    showError('AI Error', 'Empty response from Gemini. Please try again.');
+                    photoControls.classList.remove('hidden');
+                    return;
+                }
+                
+                var parts = candidate.content.parts;
+                var foundImage = false;
+                
+                for (var i = 0; i < parts.length; i++) {
+                    if (parts[i].inlineData) {
+                        editedImageData = 'data:' + parts[i].inlineData.mimeType + ';base64,' + parts[i].inlineData.data;
+                        foundImage = true;
+                        break;
+                    }
+                }
+                
+                if (!foundImage) {
+                    showError('AI Error', 'Gemini did not generate an enhanced image. Please try again.');
+                    photoControls.classList.remove('hidden');
+                    return;
+                }
+                
+                showResult(prompt);
+            })
+            .catch(function(error) {
+                showError('Network Error', error.message);
+                photoControls.classList.remove('hidden');
+            });
+        }
+        
+        function showResult(prompt) {
+            processingScreen.classList.add('hidden');
+            
+            document.getElementById('usedPrompt').textContent = prompt;
+            document.getElementById('originalImg').src = originalImageData;
+            document.getElementById('editedImg').src = editedImageData;
+            document.getElementById('comparisonEdited').style.width = '50%';
+            document.getElementById('comparisonSlider').style.left = '50%';
+            
+            resultScreen.classList.remove('hidden');
+        }
+        
+        function takeAnother() {
+            resultScreen.classList.add('hidden');
+            errorScreen.classList.add('hidden');
+            photoControls.classList.remove('hidden');
+            originalImageData = null;
+            editedImageData = null;
+        }
+        
+        function downloadPhoto() {
+            var link = document.createElement('a');
+            var timestamp = new Date().getTime();
+            link.href = editedImageData;
+            link.download = 'ai-enhanced-' + timestamp + '.jpg';
+            link.click();
+        }
+        
+        function switchCamera() {
+            if (facingMode === 'user') {
+                facingMode = 'environment';
+            } else {
+                facingMode = 'user';
+            }
+            requestCamera();
+        }
+        
+        function initComparisonSlider() {
+            var container = document.getElementById('comparisonContainer');
+            var slider = document.getElementById('comparisonSlider');
+            var editedDiv = document.getElementById('comparisonEdited');
+            
+            function updateSlider(clientX) {
+                var rect = container.getBoundingClientRect();
+                var x = clientX - rect.left;
+                var percent = (x / rect.width) * 100;
+                percent = Math.max(0, Math.min(100, percent));
+                
+                slider.style.left = percent + '%';
+                editedDiv.style.width = percent + '%';
+            }
+            
+            slider.addEventListener('mousedown', function(e) {
+                isDragging = true;
+                e.preventDefault();
+            });
+            
+            slider.addEventListener('touchstart', function(e) {
+                isDragging = true;
+                e.preventDefault();
+            });
+            
+            document.addEventListener('mousemove', function(e) {
+                if (isDragging) {
+                    updateSlider(e.clientX);
+                }
+            });
+            
+            document.addEventListener('touchmove', function(e) {
+                if (isDragging && e.touches.length > 0) {
+                    updateSlider(e.touches[0].clientX);
+                }
+            });
+            
+            document.addEventListener('mouseup', function() {
+                isDragging = false;
+            });
+            
+            document.addEventListener('touchend', function() {
+                isDragging = false;
+            });
+            
+            container.addEventListener('click', function(e) {
+                updateSlider(e.clientX);
+            });
+        }
+        
+        initComparisonSlider();
+    </script>
+</body>
+</html>
